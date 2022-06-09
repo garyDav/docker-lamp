@@ -1,23 +1,64 @@
 version: "3"
 
 services:
+  nodejs:
+    build: 
+      context: ./www/dapi-node
+      dockerfile: ./dev_image.Dockerfile
+    container_name: '${COMPOSE_PROJECT_NAME}-${NODEJS}'
+    depends_on:
+      - database
+    restart: 'always'
+    ports:
+      - "3500:3500"
+    links:
+      - database
+      - webserver
+    volumes:
+      - ./www/dapi-node/server:/app/server # /opt
+      - ./www/apidb/upload:/app/upload # /opt
+      - ./www/plataforma/upload:/app/upload-plataforma # /opt
+    command:
+      npm start
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+  webpy:
+    build:
+      context: ./www/python
+    container_name: '${COMPOSE_PROJECT_NAME}-${PYTHON}'
+    depends_on:
+      - database
+    restart: 'always'
+    ports:
+      - "8081:80"
+    links:
+      - database
+      - webserver
+    command:
+      tail -f /dev/null
+    logging:
+      driver: none
   webserver:
     build: 
       context: ./bin/${PHPVERSION}
     container_name: '${COMPOSE_PROJECT_NAME}-${PHPVERSION}'
     restart: 'always'
     ports:
-      - "${HOST_MACHINE_UNSECURE_HOST_PORT}:80"
-      - "${HOST_MACHINE_SECURE_HOST_PORT}:443"
-    links: 
+      - "127.0.0.1:${HOST_MACHINE_UNSECURE_HOST_PORT}:80"
+      - "127.0.0.1:${HOST_MACHINE_SECURE_HOST_PORT}:443"
+    links:
       - database
-    volumes: 
+    volumes:
       - ${DOCUMENT_ROOT-./www}:/var/www/html
       - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/php.ini
       - ${VHOSTS_DIR-./config/vhosts}:/etc/apache2/sites-enabled
       - ${LOG_DIR-./logs/apache2}:/var/log/apache2
     environment:
       PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+    logging:
+      driver: none
   database:
     build:
       context: "./bin/${DATABASE}"
@@ -25,7 +66,7 @@ services:
     restart: 'always'
     ports:
       - "127.0.0.1:${HOST_MACHINE_MYSQL_PORT}:3306"
-    volumes: 
+    volumes:
       - ${MYSQL_DATA_DIR-./data/mysql}:/var/lib/mysql
       - ${MYSQL_LOG_DIR-./logs/mysql}:/var/log/mysql
     environment:
@@ -33,6 +74,9 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command: mysqld --max_allowed_packet=300M
+    logging:
+      driver: none
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: '${COMPOSE_PROJECT_NAME}-phpmyadmin'
@@ -48,11 +92,15 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - '${HOST_MACHINE_PMA_PORT}:80'
-    volumes: 
+    volumes:
       - /sessions
       - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/conf.d/php-phpmyadmin.ini
+    logging:
+      driver: none
   redis:
     container_name: '${COMPOSE_PROJECT_NAME}-redis'
     image: redis:latest
     ports:
       - "127.0.0.1:${HOST_MACHINE_REDIS_PORT}:6379"
+    logging:
+      driver: none
