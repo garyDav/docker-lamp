@@ -24,26 +24,12 @@ services:
       driver: "json-file"
       options:
         max-size: "5m"
-  webpy:
-    build:
-      context: ./www/python
-    container_name: '${COMPOSE_PROJECT_NAME}-${PYTHON}'
-    depends_on:
-      - database
-    restart: 'always'
-    ports:
-      - "8081:80"
-    links:
-      - database
-      - webserver
-    command:
-      tail -f /dev/null
-    logging:
-      driver: none
   webserver:
     build: 
       context: ./bin/${PHPVERSION}
     container_name: '${COMPOSE_PROJECT_NAME}-${PHPVERSION}'
+    depends_on:
+      - database
     restart: 'always'
     ports:
       - "127.0.0.1:${HOST_MACHINE_UNSECURE_HOST_PORT}:80"
@@ -57,6 +43,28 @@ services:
       - ${LOG_DIR-./logs/apache2}:/var/log/apache2
     environment:
       PMA_PORT: ${HOST_MACHINE_PMA_PORT}
+    logging:
+      driver: none
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: '${COMPOSE_PROJECT_NAME}-phpmyadmin'
+    depends_on:
+      - database
+    links:
+      - database
+    environment:
+      PMA_HOST: database
+      PMA_PORT: 3306
+      PMA_USER: ${MYSQL_ROOT_USER}
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: ${MYSQL_ROOT_USER}
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - '${HOST_MACHINE_PMA_PORT}:80'
+    volumes:
+      - /sessions
+      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/conf.d/php-phpmyadmin.ini
     logging:
       driver: none
   database:
@@ -77,30 +85,27 @@ services:
     command: mysqld --max_allowed_packet=300M
     logging:
       driver: none
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: '${COMPOSE_PROJECT_NAME}-phpmyadmin'
-    links:
-      - database
-    environment:
-      PMA_HOST: database
-      PMA_PORT: 3306
-      PMA_USER: ${MYSQL_USER}
-      PMA_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - '${HOST_MACHINE_PMA_PORT}:80'
-    volumes:
-      - /sessions
-      - ${PHP_INI-./config/php/php.ini}:/usr/local/etc/php/conf.d/php-phpmyadmin.ini
-    logging:
-      driver: none
-#  redis:
-#    container_name: '${COMPOSE_PROJECT_NAME}-redis'
-#    image: redis:latest
-#    ports:
-#      - "127.0.0.1:${HOST_MACHINE_REDIS_PORT}:6379"
-#    logging:
-#      driver: none
+
+  # webpy:
+  #   build:
+  #     context: ./www/python
+  #   container_name: '${COMPOSE_PROJECT_NAME}-${PYTHON}'
+  #   depends_on:
+  #     - database
+  #   restart: 'always'
+  #   ports:
+  #     - "8081:80"
+  #   links:
+  #     - database
+  #     - webserver
+  #   command:
+  #     tail -f /dev/null
+  #   logging:
+  #     driver: none
+  # redis:
+  #   container_name: '${COMPOSE_PROJECT_NAME}-redis'
+  #   image: redis:latest
+  #   ports:
+  #     - "127.0.0.1:${HOST_MACHINE_REDIS_PORT}:6379"
+  #   logging:
+  #     driver: none
