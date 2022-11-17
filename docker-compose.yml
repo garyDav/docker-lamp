@@ -24,6 +24,27 @@ services:
       driver: "json-file"
       options:
         max-size: "5m"
+  react:
+    build:
+      context: ./www/donbosco-app
+      dockerfile: ./dev_image.Dockerfile
+    container_name: '${COMPOSE_PROJECT_NAME}-${REACT}'
+    depends_on:
+      - database
+    restart: 'always'
+    ports:
+      - 3000:3000
+    links:
+      - database
+      - webserver
+      - nodejs
+    volumes:
+      - './www/donbosco-app:/app'
+      - '/app/node_modules'
+    stdin_open: true
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    command: npm start
   webserver:
     build: 
       context: ./bin/${PHPVERSION}
